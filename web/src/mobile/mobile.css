@@ -1,0 +1,30 @@
+/* تنظيم — تطبيق الجوال */
+.m-app { min-height: 100vh; display: flex; flex-direction: column; max-width: 560px; margin: 0 auto; background: var(--bg); }
+.m-top { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--sidebar); color: #fff; }
+.m-title { flex: 1; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-logo { width: 34px; height: 34px; border-radius: 9px; background: rgba(255, 255, 255, .12); display: grid; place-items: center; overflow: hidden; flex: none; }
+.m-logo img { width: 100%; height: 100%; object-fit: contain; } .m-logo svg { width: 20px; height: 20px; }
+.m-back { color: #fff; display: grid; place-items: center; width: 34px; height: 34px; }
+.m-back svg { width: 24px; height: 24px; }
+.m-lang { border: 1px solid rgba(255, 255, 255, .3); background: transparent; color: #fff; border-radius: 8px; padding: 4px 10px; font-weight: 600; cursor: pointer; }
+.m-main { flex: 1; padding: 14px 14px 90px; display: grid; gap: 12px; align-content: start; }
+.m-hero { padding: 20px 4px; } .m-hero h1 { font-size: 26px; } .m-hero p { color: var(--muted); margin: 6px 0 0; }
+.m-h { font-size: 15px; margin: 8px 2px 8px; color: var(--muted); }
+.m-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 14px; display: flex; gap: 12px; align-items: flex-start; box-shadow: var(--shadow); margin-bottom: 10px; }
+.m-col { flex-direction: column; align-items: stretch; }
+.m-link { color: inherit; text-decoration: none !important; align-items: center; }
+.m-link > svg { width: 20px; height: 20px; color: var(--faint); }
+.m-meta { display: grid; gap: 6px; color: var(--muted); font-size: 14px; }
+.m-meta div { display: flex; gap: 8px; align-items: center; } .m-meta svg { width: 16px; height: 16px; }
+.m-tabs { position: fixed; bottom: 0; inset-inline: 0; max-width: 560px; margin: 0 auto; display: grid; grid-template-columns: repeat(6, 1fr); background: var(--surface); border-top: 1px solid var(--border); padding-bottom: env(safe-area-inset-bottom); }
+.m-tabs button { border: 0; background: none; padding: 8px 2px; display: grid; justify-items: center; gap: 2px; font-size: 10.5px; color: var(--faint); cursor: pointer; }
+.m-tabs button svg { width: 21px; height: 21px; }
+.m-tabs button.on { color: var(--primary); font-weight: 600; }
+.m-pass { background: var(--surface); border-radius: 22px; overflow: hidden; box-shadow: var(--shadow-lg); border: 1px solid var(--border); }
+.m-pass-head { background: var(--primary); color: #fff; padding: 16px; display: flex; gap: 12px; align-items: center; }
+.m-pass-body { padding: 22px; text-align: center; display: grid; gap: 6px; justify-items: center; }
+.m-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.m-stat { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 12px; display: grid; justify-items: center; gap: 2px; }
+.m-stat svg { width: 20px; height: 20px; color: var(--primary); } .m-stat b { font-size: 22px; } .m-stat span { font-size: 12px; color: var(--muted); }
+.m-cam { width: 100%; aspect-ratio: 1; border-radius: 16px; overflow: hidden; background: var(--neutral-bg); }
+.m-cam:empty { display: none; }

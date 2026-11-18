@@ -1,0 +1,2 @@
+{ "name": "تنظيم — Tanzeem", "short_name": "تنظيم", "start_url": "/m", "display": "standalone", "background_color": "#0b3b31", "theme_color": "#0b3b31", "lang": "ar", "dir": "rtl",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }] }

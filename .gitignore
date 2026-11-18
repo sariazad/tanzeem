@@ -1,0 +1,9 @@
+node_modules/
+dist/
+data/*.sqlite*
+data/backups/
+data/uploads/
+.env
+test-results/
+playwright-report/
+.tmp/

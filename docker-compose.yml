@@ -1,0 +1,37 @@
+# تنظيم — التنصيب الداخلي:  docker compose up -d   (انسخ .env.example إلى .env واضبط APP_SECRET و PUBLIC_URL)
+# Nginx أمامه بشهادة الجهة (TLS)، والنظام لا يُعرض مباشرة للشبكة.
+services:
+  app:
+    build: .
+    image: tanzeem:1.0.0
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      DATA_DIR: /data
+      TRUST_PROXY: "1"
+    volumes:
+      - tanzeem-data:/data
+    expose: ["3000"]
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on: [app]
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./deploy/certs:/etc/nginx/certs:ro
+  backup:
+    image: tanzeem:1.0.0
+    restart: unless-stopped
+    depends_on: [app]
+    env_file: .env
+    environment: { DATA_DIR: /data }
+    volumes:
+      - tanzeem-data:/data
+      - ./backups:/backups
+    entrypoint: ["/bin/sh", "-c", "while true; do node server/cli.js backup /backups; sleep 86400; done"]
+volumes:
+  tanzeem-data:

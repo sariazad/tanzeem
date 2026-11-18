@@ -1,0 +1,55 @@
+/* تنظيم — واجهة الكشك: لمس، أزرار كبيرة، تباين عالٍ (WCAG AA)، ملء الشاشة. */
+html, body { overflow: hidden; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+.k-shell { min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); font-size: 18px; }
+.k-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 28px; background: var(--sidebar); color: #fff; }
+.k-brand { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 20px; }
+.k-brand img, .k-brand svg { width: 40px; height: 40px; object-fit: contain; }
+.k-event { opacity: .85; font-size: 16px; }
+.k-main { flex: 1; display: grid; place-items: center; padding: 28px; }
+.k-card { background: var(--surface); border-radius: 28px; box-shadow: var(--shadow-lg); padding: 40px; width: min(760px, 100%); display: grid; gap: 22px; justify-items: center; text-align: center; }
+.k-card h1 { font-size: 34px; } .k-card h2 { font-size: 26px; } .k-card p { margin: 0; color: var(--muted); font-size: 19px; }
+.k-big-ico { width: 72px; height: 72px; color: var(--primary); }
+.k-btn { min-height: 72px; padding: 0 36px; border-radius: 18px; font-size: 22px; font-weight: 600; border: 2px solid var(--border); background: var(--surface); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 12px; color: var(--text); }
+.k-btn svg { width: 28px; height: 28px; }
+.k-btn:active { transform: scale(.98); }
+.k-btn[disabled] { opacity: .5; }
+.k-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+.k-ghost { background: transparent; }
+.k-row { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; width: 100%; }
+.k-row .k-btn { flex: 1; min-width: 200px; }
+.k-welcome { background: var(--sidebar); color: #fff; justify-content: space-between; align-items: center; padding: 60px 24px 30px; position: relative; overflow: hidden; }
+.k-welcome::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 15% 85%, color-mix(in srgb, var(--accent) 40%, transparent), transparent 45%), radial-gradient(circle at 85% 10%, color-mix(in srgb, var(--primary) 80%, transparent), transparent 50%); opacity: .6; }
+.k-welcome > * { position: relative; }
+.k-hero { text-align: center; display: grid; gap: 18px; justify-items: center; margin-top: 4vh; }
+.k-hero h1 { font-size: clamp(36px, 6vw, 64px); }
+.k-hero p { font-size: 22px; opacity: .85; margin: 0; }
+.k-logo { width: 120px; height: 120px; border-radius: 28px; background: rgba(255, 255, 255, .12); display: grid; place-items: center; overflow: hidden; }
+.k-logo img { width: 100%; height: 100%; object-fit: contain; } .k-logo svg { width: 64px; height: 64px; }
+.k-ev { background: rgba(255, 255, 255, .1); border-radius: 18px; padding: 16px 28px; font-size: 20px; line-height: 1.7; }
+.k-langs { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+.k-langs .k-btn { min-width: 300px; min-height: 96px; font-size: 26px; border: 0; background: var(--accent); }
+.k-foot { opacity: .65; font-size: 15px; }
+.k-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; width: 100%; }
+.k-choice { border: 2px solid var(--border); background: var(--surface-2); border-radius: 22px; padding: 30px 18px; display: grid; gap: 10px; justify-items: center; cursor: pointer; font-size: 18px; color: var(--muted); }
+.k-choice b { color: var(--text); font-size: 24px; }
+.k-choice:active { border-color: var(--primary); }
+.k-cam { width: min(460px, 100%); aspect-ratio: 4/3; border-radius: 22px; overflow: hidden; background: var(--neutral-bg); display: grid; place-items: center; }
+.k-hidden-input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.k-ok .k-check, .k-bad .k-check { width: 110px; height: 110px; border-radius: 50%; display: grid; place-items: center; color: #fff; background: var(--ok); }
+.k-bad .k-check { background: var(--bad); }
+.k-check svg { width: 60px; height: 60px; stroke-width: 2.6; }
+.k-badge { width: 200px; box-shadow: var(--shadow-lg); border-radius: 8px; overflow: hidden; }
+.k-err { color: var(--bad); font-size: 17px; min-height: 22px; }
+.k-muted { color: var(--muted); }
+.k-code { font-size: 42px; font-weight: 700; letter-spacing: 6px; direction: ltr; font-family: ui-monospace, monospace; }
+.k-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: min(360px, 100%); direction: ltr; }
+.k-key { height: 74px; border-radius: 18px; border: 2px solid var(--border); background: var(--surface-2); font-size: 30px; font-weight: 600; cursor: pointer; }
+.k-form { text-align: start; justify-items: stretch; width: min(820px, 100%); max-height: calc(100vh - 140px); overflow: auto; }
+.k-form h1 { text-align: center; }
+.k-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.k-field { display: grid; gap: 6px; font-size: 17px; color: var(--muted); }
+.k-field input, .k-field select { height: 60px; border-radius: 14px; border: 2px solid var(--border); padding: 0 16px; font-size: 20px; background: var(--surface); }
+.k-field input:focus, .k-field select:focus { border-color: var(--primary); outline: none; box-shadow: var(--focus); }
+.k-check { display: flex; gap: 12px; align-items: center; font-size: 18px; }
+.k-check input { width: 28px; height: 28px; accent-color: var(--primary); }
+@media (max-width: 700px) { .k-choices, .k-fields { grid-template-columns: 1fr; } .k-card { padding: 26px; } }

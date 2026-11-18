@@ -1,0 +1,65 @@
+# تنظيم — النشر على Serv00 بعد نجاح الاختبارات على main (أو يدوياً).
+# الإعداد لمرة واحدة والسر SERV00_SSH_KEY: راجع deploy/serv00/README.md.
+name: deploy
+
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TARGET: sari221@s16.serv00.com
+      DOMAIN: tanzeem.sari221.serv00.net
+      KEY: ${{ secrets.SERV00_SSH_KEY }}
+    steps:
+      - name: Check secret
+        id: check
+        run: |
+          if [ -z "$KEY" ]; then echo "SERV00_SSH_KEY not set, skipping"; echo "ready=false" >> "$GITHUB_OUTPUT"; else echo "ready=true" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.ready == 'true'
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.ready == 'true'
+        with:
+          node-version: 22
+          cache: npm
+      - name: Build
+        if: steps.check.outputs.ready == 'true'
+        run: npm ci --no-audit --no-fund && npm run build
+      - name: Upload and switch
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/serv00 && chmod 600 ~/.ssh/serv00
+          SSH="ssh -i $HOME/.ssh/serv00 -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30 -o ServerAliveInterval=30"
+          git archive --format=tar HEAD > release.tar
+          tar -rf release.tar dist
+          gzip -9 release.tar
+          $SSH "$TARGET" 'rm -rf ~/tanzeem/app.new && mkdir -p ~/tanzeem/app.new && tar -xzf - -C ~/tanzeem/app.new' < release.tar.gz
+          $SSH "$TARGET" 'sh ~/tanzeem/app.new/deploy/serv00/deploy.sh'
+      - name: Smoke test
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          if curl -sf -o /dev/null --max-time 20 "https://$DOMAIN/healthz"; then SITE="https://$DOMAIN"; else SITE="http://$DOMAIN"; fi
+          echo "testing $SITE"
+          for p in / /login /app /kiosk /m /docs /healthz /api/openapi.json /api/public/branding; do
+            c=$(curl -sL -o /dev/null -w '%{http_code}' --max-time 30 "$SITE$p"); echo "$p → $c"; [ "$c" = 200 ] || exit 1
+          done
+      - name: Clean up
+        if: always()
+        run: rm -f ~/.ssh/serv00 release.tar.gz

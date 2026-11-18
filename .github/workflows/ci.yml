@@ -1,0 +1,44 @@
+# تنظيم — مع كل دفع: فحص الترجمة، اختبارات الوحدات والتكامل، البناء، اختبار التحمل، اختبارات المتصفح، وفحص الثغرات.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: i18n & lint
+        run: node tests/lint.mjs
+      - name: Syntax check
+        run: for f in $(find server shared tools -name '*.js' -o -name '*.mjs'); do node --check "$f"; done
+      - name: Unit + API integration tests
+        run: npx vitest run
+        env: { NODE_NO_WARNINGS: 1 }
+      - name: Build
+        run: npm run build
+      - name: Load test (1000+ scans/min, p95 < 500ms)
+        run: node tests/load.mjs
+        env: { NODE_NO_WARNINGS: 1 }
+      - name: Browser tests (critical flows)
+        run: |
+          npx playwright install --with-deps chromium
+          npx playwright test
+      - name: Dependency vulnerability scan
+        run: npm audit --omit=dev --audit-level=high
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-results
+          path: test-results
+          retention-days: 7
+          if-no-files-found: ignore

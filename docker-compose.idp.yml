@@ -1,0 +1,14 @@
+# تنظيم — بيئة اختبار الهوية: Keycloak (OIDC، ويتوسط SAML) و OpenLDAP (بديل Active Directory).
+#   docker compose -f docker-compose.yml -f docker-compose.idp.yml up -d
+# Keycloak: http://localhost:8080 (admin/admin) — أنشئ Realm "ksu" وعميل "tanzeem" (confidential) بعنوان العودة https://<host>/auth/oidc/callback
+# OpenLDAP: ldap://localhost:389  —  Bind DN: cn=admin,dc=example,dc=local / admin  —  Base DN: dc=example,dc=local
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: start-dev
+    environment: { KC_BOOTSTRAP_ADMIN_USERNAME: admin, KC_BOOTSTRAP_ADMIN_PASSWORD: admin }
+    ports: ["8080:8080"]
+  openldap:
+    image: osixia/openldap:1.5.0
+    environment: { LDAP_ORGANISATION: Example, LDAP_DOMAIN: example.local, LDAP_ADMIN_PASSWORD: admin }
+    ports: ["389:389"]
