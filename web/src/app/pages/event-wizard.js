@@ -124,6 +124,7 @@ export default async function wizard({ root, navigate }) {
             if (st.groups.length) await post(`events/${ev.id}/invitations`, { group_ids: st.groups, channel: st.channel, send: st.sendNow && st.publish });
             if (st.publish) await post(`events/${ev.id}/status`, { status: 'published' });
             toast(t('wizard.done'), 'ok');
+            invalidateRef('events');
             navigate(`/app/events/${ev.id}`);
         } catch (e) { toast(errText(e), 'bad', 6000); }
     }

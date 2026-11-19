@@ -11,16 +11,19 @@ export function optKey(resource, key) {
     return map[`${resource}.${key}`] || key;
 }
 
+// تخزين قصير فقط (20 ثانية) حتى تظهر الفعاليات والقاعات الجديدة دون إعادة تحميل الصفحة.
 const refCache = new Map();
+const REF_TTL = 20_000;
 export async function refOptions(ref, force = false) {
-    if (!force && refCache.has(ref)) return refCache.get(ref);
+    const hit = refCache.get(ref);
+    if (!force && hit && Date.now() - hit.at < REF_TTL) return hit.p;
     const p = (async () => {
         if (ref === 'users') return (await api('users', { query: { size: 200 } })).rows.map((u) => ({ value: u.id, label: `${u.name} (${u.email})` }));
         const d = RESOURCES[ref];
         const res = await api(`options/${ref}`);
         return res.rows.map((r) => ({ value: r.id, label: d.label.endsWith('_ar') ? pick(r, d.label.slice(0, -3)) : r[d.label] }));
     })();
-    refCache.set(ref, p);
+    refCache.set(ref, { p, at: Date.now() });
     p.catch(() => refCache.delete(ref));
     return p;
 }
@@ -63,7 +66,7 @@ export function fieldInput(resource, f, value) {
         }
         case 'ref': {
             input = h('select.select', common, h('option', { value: '' }, t('common.loading')));
-            refOptions(f.ref).then((opts) => { input.replaceChildren(h('option', { value: '' }, '—'), opts.map((o) => h('option', { value: o.value, selected: Number(value) === o.value }, o.label))); }).catch(() => input.replaceChildren(h('option', { value: '' }, '—')));
+            refOptions(f.ref).then((opts) => { input.replaceChildren(h('option', { value: '' }, '—'), opts.map((o) => h('option', { value: o.value, selected: Number(value) === o.value }, o.label))); }).catch(() => input.replaceChildren(h('option', { value: '' }, `— ${t('scan.network')} —`)));
             get = () => (input.value ? Number(input.value) : null);
             break;
         }
