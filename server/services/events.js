@@ -103,6 +103,38 @@ ${qrPng ? `<div style="text-align:center;padding:0 20px 20px"><img src="cid:qr" 
         }
     }
 
+    /** رابط «بطاقتي» للمسجل: يعيد دعوته إن وُجدت أو ينشئ دعوة مؤكدة بلا قناة (للتسجيل المفتوح والكشك). */
+    function ensurePass(eventId, visitorId) {
+        const inv = one(db, 'SELECT * FROM invitations WHERE event_id = ? AND visitor_id = ?', eventId, visitorId);
+        if (inv) return inv;
+        const token = randomToken(18);
+        run(db, "INSERT INTO invitations (event_id, visitor_id, channel, status, token, responded_at) VALUES (?,?,'none','confirmed',?,datetime('now'))", eventId, visitorId, token);
+        return one(db, 'SELECT * FROM invitations WHERE event_id = ? AND visitor_id = ?', eventId, visitorId);
+    }
+
+    /**
+     * رسالة «تم تأكيد تسجيلك» مع رمز QR ورابط البطاقة، بعد التأكيد أو التسجيل المفتوح أو التسجيل الفوري في الكشك.
+     * تعمل في الخلفية: فشل الإرسال لا يُفشل التسجيل، ويظهر في سجل التكامل وإشعار «فشل تكامل».
+     */
+    async function sendConfirmation(eventId, visitorId, { lang = 'ar', channel = null } = {}) {
+        const inv = ensurePass(eventId, visitorId);
+        const ev = one(db, 'SELECT * FROM events WHERE id = ?', eventId);
+        const v = one(db, 'SELECT * FROM visitors WHERE id = ?', visitorId);
+        if (!ev || !v) return false;
+        lang = lang === 'en' ? 'en' : 'ar';
+        const ch = channel || (['sms', 'both'].includes(inv.channel) ? inv.channel : 'email');
+        const cred = one(db, "SELECT * FROM credentials WHERE subject_type = 'event' AND subject_id = ? AND visitor_id = ? AND revoked = 0", eventId, visitorId);
+        const vars = { event: lang === 'en' ? ev.title_en || ev.title_ar : ev.title_ar, date: fmtDate(ev.starts_at, lang), time: fmtTime(ev.starts_at, lang), location: ev.location || '' };
+        try {
+            await deliver({ kind: 'confirmation', lang, channel: ch, visitor: v, vars, qrToken: cred ? app.attendance.tokenFor(cred) : null, link: inviteLink(inv.token) });
+            return true;
+        } catch (e) {
+            if (e.code !== 'no_contact') app.log({ level: 'warn', msg: 'confirmation.failed', event: eventId, error: String(e.message).slice(0, 200) });
+            return false;
+        }
+    }
+    const confirmLater = (...a) => { sendConfirmation(...a).catch(() => {}); };
+
     /** إنشاء دعوات من: أفراد، مجموعات، صفوف مستوردة (Excel)، أو نتائج AD. */
     function createInvitations(ctx, eventId, { visitor_ids = [], group_ids = [], rows = [], channel = 'email', lang = 'ar', remind_at = null }) {
         const ev = one(db, 'SELECT * FROM events WHERE id = ?', eventId);
@@ -160,6 +192,7 @@ ${qrPng ? `<div style="text-align:center;padding:0 20px 20px"><img src="cid:qr" 
             run(db, "UPDATE invitations SET status = 'confirmed', responded_at = datetime('now') WHERE id = ?", inv.id);
             app.attendance.issue('event', inv.event_id, inv.visitor_id);
             app.integrations.emit('invitation.confirmed', { event_id: inv.event_id, visitor_id: inv.visitor_id });
+            confirmLater(inv.event_id, inv.visitor_id, { lang: inv.lang });
         }
         app.audit.record({ name: `invitee:${inv.visitor_id}`, ip: ctx?.ip }, `invitations.${response === 'decline' ? 'decline' : 'confirm'}`, 'invitations', inv.id);
         app.hub?.publish(`event:${inv.event_id}`, 'invitation', { id: inv.id, status: response === 'decline' ? 'declined' : 'confirmed' });
@@ -214,6 +247,7 @@ ${qrPng ? `<div style="text-align:center;padding:0 20px 20px"><img src="cid:qr" 
         delete answers.photo;
         run(db, "INSERT INTO registrations (event_id, visitor_id, source, answers) VALUES (?,?,?,?) ON CONFLICT(event_id, visitor_id) DO UPDATE SET status = 'confirmed'", eventId, visitor.id, source, JSON.stringify(answers));
         const { token } = app.attendance.issue('event', eventId, visitor.id);
+        confirmLater(eventId, visitor.id, { lang: body.lang });
         app.audit.record(app.auth.actorOf(ctx), 'registrations.create', 'events', eventId, null, { visitor_id: visitor.id, source });
         app.hub?.publish(`event:${eventId}`, 'registration', { visitor_id: visitor.id });
         return { visitor: app.attendance.publicVisitor(visitor), token };
@@ -241,7 +275,7 @@ ${qrPng ? `<div style="text-align:center;padding:0 20px 20px"><img src="cid:qr" 
         };
     }
 
-    return { createInvitations, sendMany, sendInvitation, respond, validateAnswers, registerWalkIn, publicEvent, summary, inviteLink, deliver, templates, STATUS_FLOW };
+    return { createInvitations, sendMany, sendInvitation, sendConfirmation, ensurePass, respond, validateAnswers, registerWalkIn, publicEvent, summary, inviteLink, deliver, templates, STATUS_FLOW };
 }
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -443,9 +477,8 @@ export function registerEvents(r, app) {
         const ev = evOr404(ctx.params.id);
         const res = E.registerWalkIn({ ...ctx, actor: { kind: 'public', name: 'public', ip: ctx.ip, grants: [] } }, ev.id, b, 'web');
         // صفحة مشارك لهذا التسجيل
-        let inv = one(db, 'SELECT token FROM invitations WHERE event_id = ? AND visitor_id = ?', ev.id, res.visitor.id);
-        if (!inv) { const token = randomToken(18); run(db, "INSERT INTO invitations (event_id, visitor_id, channel, status, token, responded_at) VALUES (?,?,'none','confirmed',?,datetime('now'))", ev.id, res.visitor.id, token); inv = { token }; }
-        else run(db, "UPDATE invitations SET status = 'confirmed', responded_at = datetime('now') WHERE event_id = ? AND visitor_id = ?", ev.id, res.visitor.id);
+        const inv = E.ensurePass(ev.id, res.visitor.id);
+        run(db, "UPDATE invitations SET status = 'confirmed', responded_at = datetime('now') WHERE id = ?", inv.id);
         return { ok: true, link: `/m/i/${inv.token}` };
     });
 }

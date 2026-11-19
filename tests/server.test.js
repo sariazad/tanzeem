@@ -262,4 +262,34 @@ describe('الوحدات الأخرى', () => {
         const ok = await pub.post(`/api/public/events/${ev.data.id}/register`, { ...base, answers: { ...base.answers, media_outlet: 'SPA' } });
         expect(ok.data.link).toMatch(/^\/m\/i\//);
     });
+    it('رسالة تأكيد التسجيل تصل بالبريد مع رمز QR ورابط البطاقة (تسجيل مفتوح وتأكيد دعوة)', async () => {
+        const sent = [];
+        const orig = S.app.integrations.sendMail;
+        S.app.integrations.sendMail = async (m) => { sent.push(m); return { channel: 'smtp' }; };
+        try {
+            const ev = await admin.post('/api/v1/events', { title_ar: 'تأكيد بالبريد', title_en: 'Mail confirm', type: 'students', status: 'draft', starts_at: new Date(Date.now() + 864e5).toISOString(), ends_at: new Date(Date.now() + 9e7).toISOString(), open_registration: 1 });
+            await admin.post(`/api/v1/events/${ev.data.id}/status`, { status: 'published' });
+            const r = await client(S.base).post(`/api/public/events/${ev.data.id}/register`, { name_ar: 'طالب', name_en: 'Student', phone: '0544000999', email: 'student@example.com', lang: 'en' });
+            expect(r.status).toBe(200);
+            await expect.poll(() => sent.length).toBe(1);
+            expect(sent[0].to).toBe('student@example.com');
+            expect(sent[0].subject).toBe('Registration confirmed: Mail confirm');
+            expect(sent[0].text).toContain(`http://localhost${r.data.link}`);
+            expect(sent[0].attachments[0].cid).toBe('qr');
+            // تأكيد دعوة من صفحة المدعو
+            const inv = one(S.db, "SELECT i.token FROM invitations i JOIN visitors v ON v.id = i.visitor_id WHERE i.status IN ('sent','pending') AND v.email IS NOT NULL AND v.email != '' AND i.event_id IN (SELECT id FROM events WHERE status IN ('published','running') AND form_id IS NULL) LIMIT 1");
+            expect(inv).toBeTruthy();
+            {
+                const c = await client(S.base).post(`/api/public/inv/${inv.token}/respond`, { response: 'confirm', answers: {} });
+                expect(c.status).toBe(200);
+                await expect.poll(() => sent.length).toBe(2);
+                expect(sent[1].subject).toMatch(/^تم تأكيد تسجيلك: /);
+            }
+            // بلا بريد: لا رسالة ولا خطأ في التسجيل
+            const n = await client(S.base).post(`/api/public/events/${ev.data.id}/register`, { name_ar: 'بلا بريد', phone: '0544000998' });
+            expect(n.status).toBe(200);
+            await new Promise((x) => setTimeout(x, 50));
+            expect(sent.every((m) => m.to)).toBe(true);
+        } finally { S.app.integrations.sendMail = orig; }
+    });
 });

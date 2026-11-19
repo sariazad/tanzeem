@@ -200,7 +200,7 @@ function registerScreen() {
         e.preventDefault();
         if (preview) return success({ visitor: { name_ar: vals.name_ar || opt('category', 'guest'), name_en: vals.name_en }, direction: 'in' }, null);
         try {
-            const r = await api(`events/${ev.id}/register`, { method: 'POST', body: { ...vals, answers } });
+            const r = await api(`events/${ev.id}/register`, { method: 'POST', body: { ...vals, answers, lang: getLang() } });
             verify({ token: r.token, direction: 'in' });
         } catch (er) { errs.textContent = er.errors?.length ? er.errors.map((x) => `${t(`f.${x.field}`) === `f.${x.field}` ? x.field : t(`f.${x.field}`)}: ${t(`errors.${x.code}`)}`).join(' — ') : errText(er); beep(false); }
     } } }, h('h1', t('kiosk_ui.register')), h('div.k-fields', base.map(([k, ty, rq]) => field(k, ty, rq)), dyn), errs,

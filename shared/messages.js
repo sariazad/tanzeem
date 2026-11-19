@@ -21,6 +21,18 @@ export const DEFAULT_TEMPLATES = {
         ar: { subject: 'تصريح زيارة: {event}', body: 'السلام عليكم {name}،\n\nتم اعتماد زيارتكم «{event}» يوم {date} الساعة {time} في {location}.\nتصريح الدخول (رمز QR): {link}\n\n{org}', sms: 'تم اعتماد زيارتكم {event} {date} {time}. التصريح: {link}' },
         en: { subject: 'Visit permit: {event}', body: 'Dear {name},\n\nYour visit "{event}" on {date} at {time}, {location} has been approved.\nEntry permit (QR): {link}\n\n{org}', sms: 'Your visit {event} {date} {time} is approved. Permit: {link}' },
     },
+    confirmation: {
+        ar: {
+            subject: 'تم تأكيد تسجيلك: {event}',
+            body: 'السلام عليكم {name}،\n\nتم تأكيد تسجيلكم في «{event}» يوم {date} الساعة {time} في {location}.\n\nرمز الدخول (QR) في هذه الرسالة، أبرزوه عند البوابة أو الكشك لطباعة بطاقتكم.\nبطاقتكم وجدول الفعالية والخريطة: {link}\n\nمع التحية،\n{org}',
+            sms: 'تم تسجيلك في {event} يوم {date} {time}. بطاقتك ورمز الدخول: {link}',
+        },
+        en: {
+            subject: 'Registration confirmed: {event}',
+            body: 'Dear {name},\n\nYour registration for "{event}" on {date} at {time}, {location} is confirmed.\n\nYour entry code (QR) is in this email. Show it at the gate or kiosk to print your badge.\nYour badge, schedule and map: {link}\n\nBest regards,\n{org}',
+            sms: 'You are registered for {event} on {date} {time}. Badge & entry code: {link}',
+        },
+    },
     message: {
         ar: { subject: '{event}', body: '{body}', sms: '{body}' },
         en: { subject: '{event}', body: '{body}', sms: '{body}' },

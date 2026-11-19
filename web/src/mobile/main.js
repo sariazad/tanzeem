@@ -188,7 +188,7 @@ async function openRegistration(eventId) {
     const err = h('div', { role: 'alert' });
     clear(root, h('div.m-app', top(pick(d.event, 'title'), '/m'), h('main.m-main', h('form.m-card.m-col', { on: { submit: async (e) => {
         e.preventDefault();
-        try { const r = await post(`/api/public/events/${eventId}/register`, { ...vals, answers }); location.href = r.link; }
+        try { const r = await post(`/api/public/events/${eventId}/register`, { ...vals, answers, lang: getLang() }); location.href = r.link; }
         catch (ex) { err.replaceChildren(h('div.hint-box.bad', icon('alert'), ex.errors?.length ? ex.errors.map((x) => `${t(`f.${x.field}`) === `f.${x.field}` ? d.form.fields.find((f) => f.key === x.field)?.[`label_${L}`] || x.field : t(`f.${x.field}`)}: ${t(`errors.${x.code}`)}`).join(' — ') : errText(ex))); }
     } } }, h('h2', t('m.register_title')), h('div.m-meta', h('div', icon('calendar'), `${fmtDate(d.event.starts_at)} · ${fmtTime(d.event.starts_at)}`), d.event.location ? h('div', icon('map-pin'), d.event.location) : null),
     inp('name_ar', 'text', true), inp('name_en', 'text', false), inp('phone', 'tel', true), inp('email', 'email', false), inp('org_name', 'text', false),
