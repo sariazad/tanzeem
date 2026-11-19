@@ -103,3 +103,17 @@ test('المشارك: تأكيد الدعوة وعرض رمز QR', async ({ page
     await expect(m.locator('.m-pass svg[aria-label=QR]')).toBeVisible();
     await ctx.close();
 });
+
+test('القوائم المنسدلة المرتبطة تعرض خياراتها (فريق التقنية: جهاز جديد)', async ({ page }) => {
+    await signIn(page, 'it@tanzeem.demo');
+    await page.goto('/app/devices');
+    await page.locator('#content .page-head .btn.primary').first().click();
+    const selects = page.locator('[role=dialog] select.select');
+    await expect.poll(async () => {
+        for (let i = 0; i < await selects.count(); i++) if ((await selects.nth(i).locator('option').count()) > 1) return true;
+        return false;
+    }).toBe(true);
+    // قائمة الفعاليات تحديداً: أكثر من الخيار الفارغ
+    const counts = await selects.evaluateAll((els) => els.map((s) => s.options.length));
+    expect(counts.filter((n) => n > 1).length).toBeGreaterThanOrEqual(2); // الفعالية والطابعة
+});

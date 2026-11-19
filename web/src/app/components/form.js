@@ -66,7 +66,7 @@ export function fieldInput(resource, f, value) {
         }
         case 'ref': {
             input = h('select.select', common, h('option', { value: '' }, t('common.loading')));
-            refOptions(f.ref).then((opts) => { input.replaceChildren(h('option', { value: '' }, '—'), opts.map((o) => h('option', { value: o.value, selected: Number(value) === o.value }, o.label))); }).catch(() => input.replaceChildren(h('option', { value: '' }, `— ${t('scan.network')} —`)));
+            refOptions(f.ref).then((opts) => { input.replaceChildren(h('option', { value: '' }, '—'), ...opts.map((o) => h('option', { value: o.value, selected: Number(value) === o.value }, o.label))); }).catch(() => input.replaceChildren(h('option', { value: '' }, `— ${t('scan.network')} —`)));
             get = () => (input.value ? Number(input.value) : null);
             break;
         }
