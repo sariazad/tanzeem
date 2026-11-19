@@ -185,7 +185,30 @@ export function makeResources(app) {
         return app.exporter.file(format, `${name}`, cols, rows);
     }
 
-    return { list, get, raw, create, update, remove, exportRows, hooks, def, scopeCtx, scopeWhere, toCsv };
+    /**
+     * خيارات القوائم المنسدلة (المعرّف والتسمية فقط) لمورد مرتبط.
+     * يكفي أن يملك المستخدم عرض المورد نفسه، أو إنشاء/تعديل مورد آخر يشير إليه
+     * (مثال: فريق التقنية يربط الجهاز بفعالية دون صلاحية عرض الفعاليات).
+     * الزوار مستثنون: بياناتهم الشخصية لا تظهر إلا لمن يملك عرضها.
+     */
+    function options(ctx, name) {
+        const d = def(name);
+        const has = (m, a) => { try { app.auth.need(ctx, m, a); return true; } catch { return false; } };
+        let scoped = false;
+        if (has(d.module, 'view')) scoped = true;
+        else if (name === 'visitors' || !Object.values(RESOURCES).some((r) => r.fields.some((f) => f.ref === name) && (has(r.module, 'create') || has(r.module, 'update')))) {
+            app.auth.need(ctx, d.module, 'view'); // يرمي 401/403 بالشكل المعتاد
+        }
+        const sc = scoped ? scopeWhere(ctx, d, name) : { sql: '', args: [] };
+        const fm = fieldMap(d);
+        const cols = ['id', d.label];
+        if (d.label.endsWith('_ar') && fm[d.label.slice(0, -3) + '_en']) cols.push(d.label.slice(0, -3) + '_en');
+        for (const k of ['status', 'starts_at', 'badge_template_id']) if (fm[k]) cols.push(k); // حقول غير حساسة تحتاجها صفحات الكشك والبطاقات
+        const rows = all(db, `SELECT ${cols.map(ident).join(', ')} FROM ${ident(d.table)} ${sc.sql ? `WHERE ${sc.sql}` : ''} ORDER BY ${ident(d.label)} LIMIT 1000`, ...sc.args);
+        return { rows };
+    }
+
+    return { list, get, raw, create, update, remove, exportRows, hooks, def, scopeCtx, scopeWhere, toCsv, options };
 }
 
 const diffBefore = (a, b) => Object.fromEntries(Object.keys(b).filter((k) => a[k] !== b[k]).map((k) => [k, a[k]]));

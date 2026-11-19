@@ -17,7 +17,7 @@ export async function refOptions(ref, force = false) {
     const p = (async () => {
         if (ref === 'users') return (await api('users', { query: { size: 200 } })).rows.map((u) => ({ value: u.id, label: `${u.name} (${u.email})` }));
         const d = RESOURCES[ref];
-        const res = await api(ref, { query: { size: 500 } });
+        const res = await api(`options/${ref}`);
         return res.rows.map((r) => ({ value: r.id, label: d.label.endsWith('_ar') ? pick(r, d.label.slice(0, -3)) : r[d.label] }));
     })();
     refCache.set(ref, p);

@@ -280,6 +280,7 @@ function registerResourceRoutes(r, app) {
     const names = Object.keys(RESOURCES);
     const res = (ctx) => { if (!names.includes(ctx.params.resource)) throw new HttpError(404, 'not_found'); return ctx.params.resource; };
     const body = async (ctx) => (await import('./http.js')).readJson(ctx.req, 3_000_000);
+    r.get('/api/v1/options/:resource', { tag: 'resources', summary: 'خيارات القوائم المنسدلة (المعرّف والتسمية) لمورد مرتبط' }, (ctx) => R.options(ctx, res(ctx)));
     r.get('/api/v1/:resource', { tag: 'resources', summary: 'قائمة مع بحث (q) وفلاتر (f_<حقل>) وترتيب (sort, dir) وترقيم (page, size)' }, (ctx) => R.list(ctx, res(ctx)));
     r.get('/api/v1/:resource/export', { tag: 'resources', summary: 'تصدير (format=xlsx|csv)' }, (ctx) => ({ __file: R.exportRows(ctx, res(ctx), ctx.query.format === 'csv' ? 'csv' : 'xlsx', ctx.query.labels ? JSON.parse(ctx.query.labels) : null) }));
     r.post('/api/v1/:resource', { tag: 'resources', summary: 'إنشاء' }, async (ctx) => R.create(ctx, res(ctx), await body(ctx)));

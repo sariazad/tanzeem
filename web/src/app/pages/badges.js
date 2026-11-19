@@ -16,7 +16,7 @@ export default async function badges(ctx) {
     const { root, can, navigate } = ctx;
     const grid = h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '16px' } });
     root.append(pageHead(t('nav.badges'), t('badges.subtitle'), [can('badges', 'create') ? h('a.btn.primary', { href: '/app/badges/new' }, icon('plus'), t('badges.new')) : null]), grid);
-    const load = () => mount(grid, () => Promise.all([api('badge_templates', { query: { size: 100 } }), api('events', { query: { size: 500 } })]), async ([r, evs]) => {
+    const load = () => mount(grid, () => Promise.all([api('badge_templates', { query: { size: 100 } }), api('options/events')]), async ([r, evs]) => {
         if (!r.rows.length) return empty(t('badges.empty'));
         const cards = await Promise.all(r.rows.map(async (tp) => {
             const full = await api(`badge_templates/${tp.id}`);

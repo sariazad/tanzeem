@@ -6,7 +6,7 @@ import { badge, toast, errText, empty, copy } from '../../core/ui.js';
 import { pageHead } from '../main.js';
 
 export default async function kiosk({ root, can, ws }) {
-    const [devs, events, printers] = await Promise.all([api('devices', { query: { f_kind: 'kiosk', size: 100 } }), api('events', { query: { size: 200, sort: 'starts_at', dir: 'desc' } }), api('devices', { query: { f_kind: 'printer', size: 100 } })]);
+    const [devs, events, printers] = await Promise.all([api('devices', { query: { f_kind: 'kiosk', size: 100 } }), api('options/events'), api('devices', { query: { f_kind: 'printer', size: 100 } })]);
     const canEdit = can('kiosk', 'update');
     const list = h('div', { style: { display: 'grid', gap: '16px' } });
     const preview = h('div.card', h('div.card-h', h('h2', t('kiosk.preview')), h('a.btn.sm', { href: '/kiosk?preview=1', target: '_blank' }, icon('external'), t('kiosk.open_full'))),

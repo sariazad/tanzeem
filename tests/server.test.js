@@ -67,6 +67,23 @@ describe('الصلاحيات بالنطاق', () => {
         expect((await org.get('/api/v1/events/1/summary')).status).toBe(200);
         expect((await org.get('/api/v1/events/2/summary')).status).toBe(403);
     });
+    it('فريق التقنية يرى خيارات الفعاليات لربط الأجهزة دون صلاحية عرض الفعاليات', async () => {
+        const it_ = await login(S.base, 'it@tanzeem.demo');
+        expect((await it_.get('/api/v1/events')).status).toBe(403);
+        const r = await it_.get('/api/v1/options/events');
+        expect(r.status).toBe(200);
+        expect(r.data.rows.length).toBeGreaterThan(0);
+        expect(Object.keys(r.data.rows[0])).toEqual(expect.arrayContaining(['id', 'title_ar', 'title_en', 'status']));
+        expect(r.data.rows[0]).not.toHaveProperty('description_ar');
+        expect((await it_.get('/api/v1/options/visitors')).status).toBe(403);
+    });
+    it('خيارات القوائم تحترم نطاق إداري الجهة', async () => {
+        const oa = await login(S.base, 'orgadmin@tanzeem.demo');
+        const orgId = one(S.db, "SELECT id FROM orgs WHERE code = 'DSA'").id;
+        const ids = (await oa.get('/api/v1/options/events')).data.rows.map((e) => e.id);
+        const own = one(S.db, 'SELECT COUNT(*) n FROM events WHERE org_id = ?', orgId).n;
+        expect(ids.length).toBe(own);
+    });
 });
 
 describe('الرحلة الكاملة (معايير القبول)', () => {
