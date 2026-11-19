@@ -39,7 +39,7 @@ test('الصفحات الـ16 والصفحات الفرعية الخمس تعم�
     page.on('pageerror', (e) => errors.push(e.message));
     await signIn(page);
     for (const p of ['/app', '/app/events', '/app/visits', '/app/visitors', '/app/groups', '/app/bulk', '/app/reports', '/app/notifications', '/app/checkin', '/app/kiosk', '/app/badges', '/app/devices', '/app/users', '/app/forms', '/app/audit', '/app/integrations',
-        '/app/events/1/invitations', '/app/events/1/schedule', '/app/events/1/live', '/app/events/1/map', '/app/events/1/networking']) {
+        '/app/events/1/invitations', '/app/events/1/schedule', '/app/events/1/live', '/app/events/1/map', '/app/events/1/networking', '/app/events/1/design']) {
         await page.goto(p);
         await expect(page.locator('#content .page-head, #content .kpis, #content .card').first()).toBeVisible();
         await expect(page.locator('#content .state[role=alert]')).toHaveCount(0);
@@ -116,4 +116,48 @@ test('القوائم المنسدلة المرتبطة تعرض خياراتها
     // قائمة الفعاليات تحديداً: أكثر من الخيار الفارغ
     const counts = await selects.evaluateAll((els) => els.map((s) => s.options.length));
     expect(counts.filter((n) => n > 1).length).toBeGreaterThanOrEqual(2); // الفعالية والطابعة
+});
+
+test('مصمم الصفحة: قالب جاهز يُحفظ، ثم تسجيل زائر عبر الصفحة التفاعلية بخطوات', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await signIn(page, 'orgadmin@tanzeem.demo');
+    const evs = await api(page, 'GET', '/api/v1/events?size=50');
+    const ev = evs.rows.find((e) => e.open_registration && ['published', 'running'].includes(e.status)) || evs.rows[0];
+    if (!(ev.open_registration && ['published', 'running'].includes(ev.status))) {
+        await api(page, 'PUT', `/api/v1/events/${ev.id}`, { open_registration: 1 });
+        await api(page, 'POST', `/api/v1/events/${ev.id}/status`, { status: 'published' });
+    }
+    await page.goto(`/app/events/${ev.id}/design`);
+    await expect(page.locator('.dz-preset')).toHaveCount(4);
+    await page.locator('.dz-preset').nth(1).click(); // طلابي: بطاقة + خطوات + احتفال
+    // المعاينة الحية تتحدث دون حفظ
+    await expect(page.frameLocator('.dz-frame').locator('.lp.lay-card')).toBeVisible();
+    await page.locator('.dz-bar .btn.primary').click();
+    await expect(page.locator('.dz-status:not(.dirty)')).toBeVisible();
+    // الصفحة العامة بلا تسجيل دخول
+    const pub = await page.context().browser().newContext({ baseURL: page.url().replace(/\/app.*$/, '') });
+    const p2 = await pub.newPage();
+    p2.on('pageerror', (e) => errors.push(e.message));
+    await p2.goto(`/m/r/${ev.id}`);
+    await expect(p2.locator('.lp.lay-card .lp-steps')).toBeVisible();
+    await p2.locator('#lp-form').scrollIntoViewIfNeeded();
+    const inputs = p2.locator('#lp-form .lp-form-body input.input');
+    await inputs.nth(0).fill('زائر تجريبي');
+    await inputs.nth(2).fill('0551112233');
+    await p2.locator('#lp-form button[type=submit]').click();
+    // خطوة التفاصيل (إن وُجدت حقول إضافية) ثم المراجعة
+    for (let i = 0; i < 3 && !(await p2.locator('.lp-review').count()); i++) {
+        for (const sel of await p2.locator('#lp-form select[required]').all()) await sel.selectOption({ index: 1 });
+        for (const inp of await p2.locator('#lp-form input.input[required]').all()) if (!(await inp.inputValue())) await inp.fill((await inp.getAttribute('pattern')) ? '441234567' : '1234');
+        for (const c of await p2.locator('#lp-form input[type=checkbox][required]').all()) await c.check();
+        for (const r of await p2.locator('#lp-form .lp-choices').all()) { const first = r.locator('input[type=radio]').first(); if (await first.count()) await first.check(); }
+        await p2.locator('#lp-form button[type=submit]').click();
+    }
+    await expect(p2.locator('.lp-review')).toContainText('زائر تجريبي');
+    await p2.locator('#lp-form button[type=submit]').click();
+    await expect(p2.locator('.lp-success')).toBeVisible();
+    await p2.waitForURL(/\/m\/i\//, { timeout: 10_000 });
+    await pub.close();
+    expect(errors).toEqual([]);
 });

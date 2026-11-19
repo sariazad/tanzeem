@@ -8,7 +8,7 @@ import { pageHead } from '../main.js';
 import { EVENT_TABS } from '../../../../shared/permissions.js';
 import { donut } from '../../core/charts.js';
 
-const TAB_ICONS = { overview: 'grid', invitations: 'mail', schedule: 'calendar', live: 'activity', map: 'map', networking: 'share' };
+const TAB_ICONS = { overview: 'grid', invitations: 'mail', schedule: 'calendar', live: 'activity', map: 'map', networking: 'share', design: 'image' };
 const NEXT = { draft: ['published', 'cancelled'], published: ['running', 'draft', 'cancelled'], running: ['ended', 'cancelled'], ended: ['running'], cancelled: ['draft'] };
 
 export default async function eventPage(ctx) {

@@ -262,6 +262,36 @@ describe('الوحدات الأخرى', () => {
         const ok = await pub.post(`/api/public/events/${ev.data.id}/register`, { ...base, answers: { ...base.answers, media_outlet: 'SPA' } });
         expect(ok.data.link).toMatch(/^\/m\/i\//);
     });
+    it('تصميم صفحة الفعالية: حفظ مع التحقق، ظهوره في الصفحة العامة، وحصره بالصلاحيات', async () => {
+        const ev = one(S.db, "SELECT id FROM events WHERE status IN ('published','running') AND open_registration = 1 LIMIT 1");
+        const g = await admin.get(`/api/v1/events/${ev.id}/page`);
+        expect(g.status).toBe(200);
+        expect(g.data.design.layout).toBe('cover');
+        const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+        const p = await admin.put(`/api/v1/events/${ev.id}/page`, { design: { layout: 'split', theme: { primary: '#123ABC', mode: 'dark', radius: 99 }, background: { kind: 'evil', image: 'javascript:alert(1)' }, hero: { cover: png, title_ar: 'عنوان' }, sections: [{ key: 'speakers', on: false }, { key: 'bogus' }], maps_url: 'javascript:x' } });
+        expect(p.status).toBe(200);
+        const d = p.data.design;
+        expect(d.layout).toBe('split');
+        expect(d.theme).toMatchObject({ primary: '#123abc', mode: 'dark', radius: 32 });
+        expect(d.background.kind).toBe('gradient');
+        expect(d.background.image).toBeNull();
+        expect(d.hero.cover).toBe(png);
+        expect(d.sections[0]).toEqual({ key: 'speakers', on: false });
+        expect(d.sections.map((x) => x.key)).not.toContain('bogus');
+        expect(d.sections).toHaveLength(7);
+        expect(d.maps_url).toBe('');
+        const pub = await client(S.base).get(`/api/public/events/${ev.id}/register`);
+        expect(pub.data.design.layout).toBe('split');
+        expect(pub.data.extras.seats).toHaveProperty('capacity');
+        expect(Array.isArray(pub.data.extras.speakers)).toBe(true);
+        const ev2 = await admin.get('/api/v1/events?size=5');
+        expect(ev2.data.rows[0]).not.toHaveProperty('page');
+        const rec = await login(S.base, 'reception@tanzeem.demo');
+        expect((await rec.put(`/api/v1/events/${ev.id}/page`, { design: {} })).status).toBe(403);
+        const draft = await admin.post('/api/v1/events', { title_ar: 'مسودة', type: 'guests', starts_at: new Date().toISOString(), ends_at: new Date(Date.now() + 9e6).toISOString(), open_registration: 1 });
+        expect((await client(S.base).get(`/api/public/events/${draft.data.id}/register`)).status).toBe(404);
+        expect((await admin.get(`/api/v1/events/${draft.data.id}/page/preview`)).data.preview).toBe(true);
+    });
     it('رسالة تأكيد التسجيل تصل بالبريد مع رمز QR ورابط البطاقة (تسجيل مفتوح وتأكيد دعوة)', async () => {
         const sent = [];
         const orig = S.app.integrations.sendMail;

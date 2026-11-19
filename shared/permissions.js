@@ -24,7 +24,7 @@ export const ACTIONS = ['view', 'create', 'update', 'delete', 'export', 'approve
 export const SCOPES = ['all', 'org', 'event'];
 
 /** صفحات الفعالية الفرعية الخمس. */
-export const EVENT_TABS = ['invitations', 'schedule', 'live', 'map', 'networking'];
+export const EVENT_TABS = ['invitations', 'schedule', 'live', 'map', 'networking', 'design'];
 
 const all = ACTIONS;
 export const DEFAULT_ROLES = [

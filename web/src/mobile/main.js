@@ -12,6 +12,7 @@ import { qrEl } from '../core/qr.js';
 import { startScanner } from '../core/scanner.js';
 import { toast, errText, beep, loading, errorState, empty, avatar, badge } from '../core/ui.js';
 import { densityColor } from '../core/charts.js';
+import { renderLanding, applyDesignTheme } from './landing.js';
 
 const root = document.getElementById('root');
 const path = location.pathname.replace(/\/+$/, '');
@@ -48,6 +49,7 @@ async function participant(token) {
     try { data = await api(`/api/public/inv/${token}`); } catch (e) { return clear(root, h('div.m-app', top(null, '/m'), h('main.m-main', errorState(e)))); }
     applyBranding(data.branding);
     branding = data.branding;
+    if (data.design) applyDesignTheme(data.design, data.branding);
     const ev = data.event;
     const saved = store.get('tz_my_invites', []).filter((x) => x.token !== token);
     store.set('tz_my_invites', [{ token, title: pick(ev, 'title'), starts_at: ev.starts_at }, ...saved].slice(0, 10));
@@ -175,31 +177,24 @@ async function permit(token) {
     } catch (e) { clear(root, h('div.m-app', top(), h('main.m-main', errorState(e)))); }
 }
 
-/* التسجيل المفتوح */
+/* التسجيل المفتوح: صفحة الفعالية التفاعلية حسب تصميمها (ومعاينة حية داخل مصمم الصفحة) */
 async function openRegistration(eventId) {
-    clear(root, h('div.m-app', top(), h('main.m-main', loading())));
+    const preview = new URLSearchParams(location.search).has('preview');
+    clear(root, h('div.m-app', h('main.m-main', loading())));
     let d;
-    try { d = await api(`/api/public/events/${eventId}/register`); } catch (e) { return clear(root, h('div.m-app', top(null, '/m'), h('main.m-main', errorState(e)))); }
+    try { d = await api(preview ? `/api/v1/events/${eventId}/page/preview` : `/api/public/events/${eventId}/register`); } catch (e) { return clear(root, h('div.m-app', top(null, '/m'), h('main.m-main', errorState(e)))); }
     applyBranding(d.branding);
-    const vals = {};
-    const answers = {};
-    const L = getLang();
-    const inp = (k, type, req) => h('div.field', h('label', t(`f.${k}`), req ? h('span.req', ' *') : null), h('input.input', { type, required: req, dir: ['tel', 'email'].includes(type) ? 'ltr' : null, on: { input: (e) => { vals[k] = e.target.value; } } }));
-    const err = h('div', { role: 'alert' });
-    clear(root, h('div.m-app', top(pick(d.event, 'title'), '/m'), h('main.m-main', h('form.m-card.m-col', { on: { submit: async (e) => {
-        e.preventDefault();
-        try { const r = await post(`/api/public/events/${eventId}/register`, { ...vals, answers, lang: getLang() }); location.href = r.link; }
-        catch (ex) { err.replaceChildren(h('div.hint-box.bad', icon('alert'), ex.errors?.length ? ex.errors.map((x) => `${t(`f.${x.field}`) === `f.${x.field}` ? d.form.fields.find((f) => f.key === x.field)?.[`label_${L}`] || x.field : t(`f.${x.field}`)}: ${t(`errors.${x.code}`)}`).join(' — ') : errText(ex))); }
-    } } }, h('h2', t('m.register_title')), h('div.m-meta', h('div', icon('calendar'), `${fmtDate(d.event.starts_at)} · ${fmtTime(d.event.starts_at)}`), d.event.location ? h('div', icon('map-pin'), d.event.location) : null),
-    inp('name_ar', 'text', true), inp('name_en', 'text', false), inp('phone', 'tel', true), inp('email', 'email', false), inp('org_name', 'text', false),
-    d.form.fields.filter((f) => !['photo'].includes(f.type)).map((f) => {
-        const label = f[`label_${L}`] || f.key;
-        if (['select'].includes(f.type)) return h('div.field', h('label', label), h('select.select', { on: { change: (e) => { answers[f.key] = e.target.value; } } }, h('option', { value: '' }, '—'), (f.options || []).map((o) => h('option', { value: o.value }, o[`label_${L}`]))));
-        if (f.type === 'radio') return h('div.field', h('label', label), h('div', { style: { display: 'flex', gap: '12px', flexWrap: 'wrap' } }, (f.options || []).map((o) => h('label.check', h('input', { type: 'radio', name: f.key, on: { change: () => { answers[f.key] = o.value; } } }), o[`label_${L}`]))));
-        if (f.type === 'checkbox') return h('label.check', h('input', { type: 'checkbox', on: { change: (e) => { answers[f.key] = e.target.checked; } } }), label);
-        if (f.type === 'multi') return h('div.field', h('label', label), h('div', { style: { display: 'flex', gap: '12px', flexWrap: 'wrap' } }, (f.options || []).map((o) => h('label.check', h('input', { type: 'checkbox', on: { change: (e) => { const s = new Set(answers[f.key] || []); e.target.checked ? s.add(o.value) : s.delete(o.value); answers[f.key] = [...s]; } } }), o[`label_${L}`]))));
-        return h('div.field', h('label', label, f.required ? h('span.req', ' *') : null), h('input.input', { type: { email: 'email', phone: 'tel', number: 'number', date: 'date' }[f.type] || 'text', on: { input: (e) => { answers[f.key] = e.target.value; } } }));
-    }), err, h('button.btn.primary.lg', { type: 'submit' }, t('m.register'))))));
+    branding = d.branding;
+    const page = renderLanding(root, d, {
+        preview,
+        errText,
+        submit: (vals, answers) => post(`/api/public/events/${eventId}/register`, { ...vals, answers, lang: getLang() }),
+    });
+    if (preview) {
+        // المصمم يرسل التصميم غير المحفوظ لحظة بلحظة
+        addEventListener('message', (e) => { if (e.origin === location.origin && e.data?.type === 'tz-design') page.update(e.data.design); });
+        parent?.postMessage({ type: 'tz-preview-ready' }, location.origin);
+    }
 }
 
 /* ───────── المنظم ───────── */

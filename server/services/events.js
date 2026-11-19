@@ -5,6 +5,7 @@ import { fail, readJson } from '../http.js';
 import { randomToken } from '../security.js';
 import { coerce, RESOURCES, normPhone } from '../../shared/resources.js';
 import { DEFAULT_TEMPLATES, fill, fmtDate, fmtTime } from '../../shared/messages.js';
+import { normalizeDesign, parseDesign } from '../../shared/page-design.js';
 
 const STATUS_FLOW = { draft: ['published', 'cancelled'], published: ['running', 'draft', 'cancelled', 'ended'], running: ['ended', 'cancelled'], ended: ['running'], cancelled: ['draft'] };
 
@@ -253,6 +254,22 @@ ${qrPng ? `<div style="text-align:center;padding:0 20px 20px"><img src="cid:qr" 
         return { visitor: app.attendance.publicVisitor(visitor), token };
     }
 
+    /** بيانات صفحة الفعالية العامة: التصميم + المقاعد + أبرز الجلسات + المتحدثون. */
+    function pagePayload(ev) {
+        const registered = one(db, "SELECT COUNT(*) n FROM registrations WHERE event_id = ? AND status = 'confirmed'", ev.id).n;
+        const sessions = all(db, 'SELECT id, day, track, title_ar, title_en, starts_at, ends_at, hall, speaker_ids, featured FROM event_sessions WHERE event_id = ? ORDER BY featured DESC, starts_at LIMIT 40', ev.id);
+        const ids = [...new Set(sessions.flatMap((x) => { try { return JSON.parse(x.speaker_ids || '[]'); } catch { return []; } }))].slice(0, 24);
+        const speakers = ids.length ? all(db, `SELECT id, name_ar, name_en, title, org_name FROM speakers WHERE id IN (${ids.map(() => '?').join(',')})`, ...ids) : [];
+        return {
+            design: parseDesign(ev.page),
+            extras: {
+                seats: { capacity: ev.capacity || 0, registered },
+                highlights: sessions.slice(0, 6).map(({ speaker_ids, ...x }) => x),
+                speakers,
+            },
+        };
+    }
+
     function publicEvent(ev, lang) {
         const venue = ev.venue_id ? one(db, 'SELECT id, name_ar, name_en, map_bg, map_w, map_h FROM venues WHERE id = ?', ev.venue_id) : null;
         return { id: ev.id, title_ar: ev.title_ar, title_en: ev.title_en, type: ev.type, status: ev.status, starts_at: ev.starts_at, ends_at: ev.ends_at, location: ev.location, description: ev.description, venue: venue ? { id: venue.id, name_ar: venue.name_ar, name_en: venue.name_en, has_map: !!venue.map_bg, map_w: venue.map_w, map_h: venue.map_h } : null };
@@ -275,7 +292,7 @@ ${qrPng ? `<div style="text-align:center;padding:0 20px 20px"><img src="cid:qr" 
         };
     }
 
-    return { createInvitations, sendMany, sendInvitation, sendConfirmation, ensurePass, respond, validateAnswers, registerWalkIn, publicEvent, summary, inviteLink, deliver, templates, STATUS_FLOW };
+    return { pagePayload, createInvitations, sendMany, sendInvitation, sendConfirmation, ensurePass, respond, validateAnswers, registerWalkIn, publicEvent, summary, inviteLink, deliver, templates, STATUS_FLOW };
 }
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -286,6 +303,31 @@ export function registerEvents(r, app) {
     const evOr404 = (id) => one(db, 'SELECT * FROM events WHERE id = ?', Number(id)) || fail(404, 'not_found');
 
     r.get('/api/v1/events/:id/summary', { tag: 'events', summary: 'ملخص الفعالية والإشغال' }, (ctx) => E.summary(ctx, Number(ctx.params.id)));
+    /* تصميم صفحة الفعالية والتسجيل */
+    r.get('/api/v1/events/:id/page', { tag: 'events', summary: 'تصميم صفحة الفعالية' }, (ctx) => {
+        const ev = evOr404(ctx.params.id);
+        app.auth.need(ctx, 'events', 'view', { orgId: ev.org_id, eventId: ev.id });
+        return { design: parseDesign(ev.page), link: `/m/r/${ev.id}`, open_registration: !!ev.open_registration, status: ev.status };
+    });
+    r.put('/api/v1/events/:id/page', { tag: 'events', summary: 'حفظ تصميم صفحة الفعالية' }, async (ctx) => {
+        const ev = evOr404(ctx.params.id);
+        app.auth.need(ctx, 'events', 'update', { orgId: ev.org_id, eventId: ev.id });
+        const b = await readJson(ctx.req, 3_500_000);
+        const design = normalizeDesign(b.design);
+        const before = parseDesign(ev.page);
+        run(db, 'UPDATE events SET page = ? WHERE id = ?', JSON.stringify(design), ev.id);
+        // سجل التدقيق بلا الصور (تُذكر بحجمها فقط)
+        const slim = (d) => ({ ...d, hero: { ...d.hero, cover: d.hero.cover ? `image:${d.hero.cover.length}` : null }, background: { ...d.background, image: d.background.image ? `image:${d.background.image.length}` : null } });
+        app.audit.record(app.auth.actorOf(ctx), 'events.page', 'events', ev.id, slim(before), slim(design));
+        app.hub?.publish(`page:${ev.id}`, 'design', {});
+        return { design };
+    });
+    r.get('/api/v1/events/:id/page/preview', { tag: 'events', summary: 'معاينة صفحة التسجيل لأي حالة' }, (ctx) => {
+        const ev = evOr404(ctx.params.id);
+        app.auth.need(ctx, 'events', 'view', { orgId: ev.org_id, eventId: ev.id });
+        const form = ev.form_id ? one(db, 'SELECT fields FROM forms WHERE id = ?', ev.form_id) : null;
+        return { event: E.publicEvent(ev), form: { fields: JSON.parse(form?.fields || '[]') }, branding: app.publicBranding(), ...E.pagePayload(ev), preview: true };
+    });
     r.post('/api/v1/events/:id/status', { tag: 'events', summary: 'تغيير حالة الفعالية (نشر، بدء، إنهاء، إلغاء)' }, async (ctx) => {
         const { status } = await readJson(ctx.req);
         return app.resources.update(ctx, 'events', Number(ctx.params.id), { status });
@@ -438,7 +480,7 @@ export function registerEvents(r, app) {
             status: inv.status, lang: inv.lang, event: E.publicEvent(ev), visitor: { name_ar: v.name_ar, name_en: v.name_en, org_name: v.org_name, category: v.category, has_photo: !!v.photo },
             form: form ? { id: form.id, fields: JSON.parse(form.fields || '[]') } : null,
             qr: inv.status === 'confirmed' && cred ? app.attendance.tokenFor(cred) : null, inside: !!pres?.inside,
-            branding: app.publicBranding(),
+            branding: app.publicBranding(), design: parseDesign(ev.page),
         };
     });
     r.post('/api/public/inv/:token/respond', { public: true, tag: 'public', summary: 'تأكيد الحضور أو الاعتذار' }, async (ctx) => {
@@ -469,7 +511,7 @@ export function registerEvents(r, app) {
         const ev = evOr404(ctx.params.id);
         if (!ev.open_registration || ['draft', 'cancelled', 'ended'].includes(ev.status)) fail(404, 'not_found');
         const form = ev.form_id ? one(db, 'SELECT fields FROM forms WHERE id = ?', ev.form_id) : null;
-        return { event: E.publicEvent(ev), form: { fields: JSON.parse(form?.fields || '[]') }, branding: app.publicBranding() };
+        return { event: E.publicEvent(ev), form: { fields: JSON.parse(form?.fields || '[]') }, branding: app.publicBranding(), ...E.pagePayload(ev) };
     });
     r.post('/api/public/events/:id/register', { public: true, tag: 'public', summary: 'تسجيل مفتوح' }, async (ctx) => {
         if (app.limited('reg:' + ctx.ip, 20, 60_000)) fail(429, 'slow_down');

@@ -116,6 +116,7 @@ CREATE TABLE IF NOT EXISTS events (
     organizer_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     open_registration INTEGER NOT NULL DEFAULT 1,
     archived INTEGER NOT NULL DEFAULT 0,
+    page TEXT,
     created_by INTEGER,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -435,7 +436,16 @@ export function openDb(file = config.dbFile) {
     const db = new DatabaseSync(file);
     db.exec(`PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA busy_timeout = 5000;`);
     db.exec(SCHEMA);
+    migrate(db);
     return db;
+}
+
+/** ترحيلات إضافية لقواعد قائمة: أعمدة جديدة تُضاف دون مساس بالبيانات. */
+const COLUMNS = [['events', 'page', 'TEXT']];
+function migrate(db) {
+    for (const [table, col, type] of COLUMNS) {
+        if (!db.prepare(`PRAGMA table_info(${table})`).all().some((c) => c.name === col)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${type}`);
+    }
 }
 
 /** تنفيذ داخل معاملة. */
